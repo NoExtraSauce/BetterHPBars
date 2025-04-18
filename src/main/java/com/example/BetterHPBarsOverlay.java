@@ -90,7 +90,7 @@ public class BetterHPBarsOverlay extends Overlay
 
         String text = Integer.toString(health);
 
-        // Use RuneLite's Perspective utility to get canvas position
+        // Use RuneLites Perspective utility to get canvas position
         net.runelite.api.Point rlPoint = Perspective.getCanvasTextLocation(client, graphics, lp, text, 225);
         if (rlPoint == null)
         {
