@@ -17,8 +17,8 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 @PluginDescriptor(
-        name = "Better HP Bars",
-        description = "Displays NPC HP number inside their health bar",
+        name = "Opponent Overhead HP Counter",
+        description = "Displays Overhead HP Counters On Opponents ",
         tags = {"combat", "hp", "overlay", "health"}
 )
 public class BetterHPBarsPlugin extends Plugin

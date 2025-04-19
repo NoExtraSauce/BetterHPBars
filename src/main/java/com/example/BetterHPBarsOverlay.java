@@ -1,19 +1,23 @@
 package com.example;
 
 import lombok.extern.slf4j.Slf4j;
-import java.awt.Point;
-import net.runelite.api.*;
+
+import javax.inject.Inject;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+
+import net.runelite.api.Actor;
+import net.runelite.api.Client;
+import net.runelite.api.coords.LocalPoint;
+import net.runelite.api.NPC;
 import net.runelite.client.game.NPCManager;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.OverlayPriority;
-import net.runelite.client.ui.overlay.RenderableEntity;
-import net.runelite.api.coords.LocalPoint;
-import net.runelite.client.util.Text;
+import net.runelite.api.Perspective;
+import net.runelite.api.VarClientInt;
 
-import javax.inject.Inject;
-import java.awt.*;
 
 @Slf4j
 public class BetterHPBarsOverlay extends Overlay
@@ -21,13 +25,15 @@ public class BetterHPBarsOverlay extends Overlay
     private final Client client;
     private final BetterHPBarsPlugin plugin;
     private final NPCManager npcManager;
+    private final BetterHPBarsConfig config;
 
     @Inject
-    private BetterHPBarsOverlay(Client client, BetterHPBarsPlugin plugin, NPCManager npcManager)
+    private BetterHPBarsOverlay(Client client, BetterHPBarsPlugin plugin, NPCManager npcManager, BetterHPBarsConfig config)
     {
         this.client = client;
         this.plugin = plugin;
         this.npcManager = npcManager;
+        this.config = config;
 
         setPosition(OverlayPosition.DYNAMIC);
         setPriority(OverlayPriority.HIGH);
@@ -81,38 +87,60 @@ public class BetterHPBarsOverlay extends Overlay
             health = (minHealth + maxHp + 1) / 2;
         }
 
-        // Convert local point to screen coordinates
         LocalPoint lp = opponent.getLocalLocation();
         if (lp == null)
         {
             return null;
         }
 
-        String text = Integer.toString(health);
+        String hpText = health + " HP";
+        String nameText = opponent.getName();
 
-        // Use RuneLite's Perspective utility to get canvas position
-        net.runelite.api.Point rlPoint = Perspective.getCanvasTextLocation(client, graphics, lp, text, 225);
-        if (rlPoint == null)
+        int zoom = client.isResized()
+                ? client.getVarcIntValue(VarClientInt.CAMERA_ZOOM_RESIZABLE_VIEWPORT)
+                : client.getVarcIntValue(VarClientInt.CAMERA_ZOOM_FIXED_VIEWPORT);
+
+        int zOffset = zoom > 500 ? 245 + config.verticalOffset() : 265 + config.verticalOffset();
+
+        BufferedImage dummyImage = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        net.runelite.api.Point rawPoint = Perspective.getCanvasImageLocation(client, lp, dummyImage, zOffset);
+        if (rawPoint == null)
         {
             return null;
         }
 
-        // Center the text horizontally and vertically based on font metrics
-        Font font = new Font("Arial", Font.BOLD, 14);
-        graphics.setFont(font);
-        FontMetrics fm = graphics.getFontMetrics(font);
-        int textWidth = fm.stringWidth(text);
-        int textHeight = fm.getAscent();
+        java.awt.Point canvasPoint = new java.awt.Point(rawPoint.getX(), rawPoint.getY() + config.verticalOffset());
 
-        int x = rlPoint.getX() - (textWidth / 2);
-        int y = rlPoint.getY() + (textHeight / 2);
 
-        // Draw outline and text
+        // Font based on config
+        int fontStyle = config.boldText() ? Font.BOLD : Font.PLAIN;
+        Font hpFont = new Font("Arial", fontStyle, config.hpFontSize());
+        Font nameFont = new Font("Arial", fontStyle, config.nameFontSize());
+
+        // Opponents HP Count Font Controls
+        graphics.setFont(hpFont);
+        FontMetrics hpFm = graphics.getFontMetrics(hpFont);
+        int hpWidth = hpFm.stringWidth(hpText);
+        int hpAscent = hpFm.getAscent();
+        int xHP = canvasPoint.x - (hpWidth / 2);
+        int yHP = canvasPoint.y + (hpAscent / 2); // This approximates vertical center alignment
         graphics.setColor(Color.BLACK);
-        graphics.drawString(text, x + 1, y + 1);
-        graphics.setColor(Color.WHITE);
-        graphics.drawString(text, x, y);
+        graphics.drawString(hpText, xHP + 1, yHP + 1);
+        graphics.setColor(config.hpColor());
+        graphics.drawString(hpText, xHP, yHP);
 
+
+        // Opponents Name Font Controls
+        graphics.setFont(nameFont);
+        FontMetrics nameFm = graphics.getFontMetrics(nameFont);
+        int nameWidth = nameFm.stringWidth(nameText);
+        int nameAscent = nameFm.getAscent();
+        int xName = canvasPoint.x - (nameWidth / 2);
+        int yName = yHP - nameAscent - 2; // 2px spacing above HP text
+        graphics.setColor(Color.BLACK);
+        graphics.drawString(nameText, xName + 1, yName + 1);
+        graphics.setColor(config.nameColor());
+        graphics.drawString(nameText, xName, yName);
 
         return null;
     }
